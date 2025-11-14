@@ -1,7 +1,7 @@
 pipeline {
     agent {
         docker {
-            image 'maven:3.9.4-eclipse-temurin-17-alpine'
+            image 'maven:3.9.4-eclipse-temurin-17'
             args '--user root -v /var/run/docker.sock:/var/run/docker.sock'
         }
     }
@@ -15,13 +15,6 @@ pipeline {
     }
 
     stages {
-
-                stage('Setup Tools') {
-                    steps {
-                        sh 'apk add --no-cache git bash docker-cli'
-                    }
-                }
-
 
         stage('Checkout') {
             steps {

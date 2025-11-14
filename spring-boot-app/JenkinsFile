@@ -40,46 +40,47 @@ pipeline {
             }
         }
 
-
-                    stage('Build and Push Docker Image') {
-                steps {
-                    script {
-                        def dockerImageTag = "${DOCKER_IMAGE_BASE}:${BUILD_NUMBER}"
-                        dir('spring-boot-app') {
-                            // Install Docker CLI inside container
-                            sh 'apk add --no-cache docker-cli'
-                            sh 'ls -ltr'
-                            sh "docker build -t ${dockerImageTag} -f Dockerfile ."
-                        }
-                        def dockerImage = docker.image(dockerImageTag)
-                        docker.withRegistry('https://index.docker.io/v1/', 'docker-cred') {
-                            dockerImage.push()
-                            dockerImage.push("latest")
-                        }
+        stage('Build and Push Docker Image') {
+            steps {
+                script {
+                    def dockerImageTag = "${DOCKER_IMAGE_BASE}:${BUILD_NUMBER}"
+                    dir('spring-boot-app') {
+                        // Install Docker CLI inside container
+                        sh 'apk add --no-cache docker-cli'
+                        sh 'ls -ltr'
+                        sh "docker build -t ${dockerImageTag} -f Dockerfile ."
+                    }
+                    def dockerImage = docker.image(dockerImageTag)
+                    docker.withRegistry('https://index.docker.io/v1/', 'docker-cred') {
+                        dockerImage.push()
+                        dockerImage.push("latest")
                     }
                 }
             }
+        }
 
+        stage('Update Deployment File') {
+            steps {
+                script {
+                    // Install git
+                    sh 'apk add --no-cache git'
 
-stage('Update Deployment File') {
-    steps {
-        script {
-            sh 'apk add --no-cache git' // install git
-            withCredentials([string(credentialsId: 'github', variable: 'GITHUB_TOKEN')]) {
-                sh '''
-                    git config user.email "${GIT_EMAIL}"
-                    git config user.name "Induwara Mihisara"
-                    BUILD_NUMBER=${BUILD_NUMBER}
-                    sed -i "s/replaceImageTag/${BUILD_NUMBER}/g" spring-boot-app-deployment/deployment.yml
-                    git add spring-boot-app-deployment/deployment.yml
-                    git commit -m "Update deployment image to version ${BUILD_NUMBER}" || echo "No changes to commit"
-                    git push https://${GITHUB_TOKEN}@github.com/${GIT_USER_NAME}/${GIT_REPO_NAME} HEAD:main
-                '''
+                    // Update deployment file and push to GitHub
+                    withCredentials([string(credentialsId: 'github', variable: 'GITHUB_TOKEN')]) {
+                        sh '''
+                            git config user.email "${GIT_EMAIL}"
+                            git config user.name "Induwara Mihisara"
+                            BUILD_NUMBER=${BUILD_NUMBER}
+                            sed -i "s/replaceImageTag/${BUILD_NUMBER}/g" spring-boot-app-deployment/deployment.yml
+                            git add spring-boot-app-deployment/deployment.yml
+                            git commit -m "Update deployment image to version ${BUILD_NUMBER}" || echo "No changes to commit"
+                            git push https://${GITHUB_TOKEN}@github.com/${GIT_USER_NAME}/${GIT_REPO_NAME} HEAD:main
+                        '''
+                    }
+                }
             }
         }
     }
-}
-
 
     post {
         always { echo "Pipeline finished." }

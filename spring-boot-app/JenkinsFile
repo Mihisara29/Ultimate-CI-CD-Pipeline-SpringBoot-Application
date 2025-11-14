@@ -70,16 +70,16 @@ pipeline {
             }
         }
 
-        stage('Update Deployment File') {
-            steps {
-                // Run on host agent
+    stage('Update Deployment File') {
+        steps {
+            dir('spring-boot-app-deplyment') {  // go into the correct folder
                 withCredentials([string(credentialsId: 'github', variable: 'GITHUB_TOKEN')]) {
                     sh '''
                         git config user.email "${GIT_EMAIL}"
                         git config user.name "Induwara Mihisara"
                         BUILD_NUMBER=${BUILD_NUMBER}
-                        sed -i "s/replaceImageTag/${BUILD_NUMBER}/g" spring-boot-app-deployment/deployment.yml
-                        git add spring-boot-app-deployment/deployment.yml
+                        sed -i "s/replaceImageTag/${BUILD_NUMBER}/g" deployment.yml
+                        git add deployment.yml
                         git commit -m "Update deployment image to version ${BUILD_NUMBER}" || echo "No changes to commit"
                         git push https://${GITHUB_TOKEN}@github.com/${GIT_USER_NAME}/${GIT_REPO_NAME} HEAD:main
                     '''
@@ -87,6 +87,7 @@ pipeline {
             }
         }
     }
+
 
     post {
         always { echo "Pipeline finished." }

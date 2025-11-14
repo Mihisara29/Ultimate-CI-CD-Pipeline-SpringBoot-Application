@@ -1,5 +1,10 @@
 pipeline {
-    agent any // Host agent
+    agent {
+        docker {
+            image 'maven:3.9.4-eclipse-temurin-17-alpine'
+            args '--user root -v /var/run/docker.sock:/var/run/docker.sock'
+        }
+    }
 
     environment {
         SONAR_URL = "http://3.83.239.186:9000"
@@ -18,12 +23,6 @@ pipeline {
         }
 
         stage('Build and Test') {
-            agent {
-                docker {
-                    image 'maven:3.9.4-eclipse-temurin-17-alpine'
-                    args '--user root -v /var/run/docker.sock:/var/run/docker.sock'
-                }
-            }
             steps {
                 dir('spring-boot-app') {
                     sh 'mvn clean package -B'
@@ -32,12 +31,6 @@ pipeline {
         }
 
         stage('Static Code Analysis') {
-            agent {
-                docker {
-                    image 'maven:3.9.4-eclipse-temurin-17-alpine'
-                    args '--user root'
-                }
-            }
             steps {
                 withCredentials([string(credentialsId: 'sonarqube', variable: 'SONAR_AUTH_TOKEN')]) {
                     dir('spring-boot-app') {
@@ -48,12 +41,6 @@ pipeline {
         }
 
         stage('Build and Push Docker Image') {
-            agent {
-                docker {
-                    image 'maven:3.9.4-eclipse-temurin-17-alpine'
-                    args '--user root -v /var/run/docker.sock:/var/run/docker.sock'
-                }
-            }
             steps {
                 script {
                     def dockerImageTag = "${DOCKER_IMAGE_BASE}:${BUILD_NUMBER}"
@@ -70,28 +57,34 @@ pipeline {
             }
         }
 
-    stage('Update Deployment File') {
-        steps {
-            dir('spring-boot-app-deplyment') {  // go into the correct folder
-                withCredentials([string(credentialsId: 'github', variable: 'GITHUB_TOKEN')]) {
-                    sh '''
-                        git config user.email "${GIT_EMAIL}"
-                        git config user.name "Induwara Mihisara"
-                        BUILD_NUMBER=${BUILD_NUMBER}
-                        sed -i "s/replaceImageTag/${BUILD_NUMBER}/g" deployment.yml
-                        git add deployment.yml
-                        git commit -m "Update deployment image to version ${BUILD_NUMBER}" || echo "No changes to commit"
-                        git push https://${GITHUB_TOKEN}@github.com/${GIT_USER_NAME}/${GIT_REPO_NAME} HEAD:main
-                    '''
+        stage('Update Deployment File') {
+            steps {
+                dir('spring-boot-app-deplyment') {  // correct folder
+                    withCredentials([string(credentialsId: 'github', variable: 'GITHUB_TOKEN')]) {
+                        sh '''
+                            git config user.email "${GIT_EMAIL}"
+                            git config user.name "Induwara Mihisara"
+                            BUILD_NUMBER=${BUILD_NUMBER}
+                            sed -i "s/replaceImageTag/${BUILD_NUMBER}/g" deployment.yml
+                            git add deployment.yml
+                            git commit -m "Update deployment image to version ${BUILD_NUMBER}" || echo "No changes to commit"
+                            git push https://${GITHUB_TOKEN}@github.com/${GIT_USER_NAME}/${GIT_REPO_NAME} HEAD:main
+                        '''
+                    }
                 }
             }
         }
     }
 
-
     post {
-        always { echo "Pipeline finished." }
-        success { echo "Pipeline succeeded!" }
-        failure { echo "Pipeline failed!" }
+        always {
+            echo "Pipeline finished."
+        }
+        success {
+            echo "Pipeline succeeded!"
+        }
+        failure {
+            echo "Pipeline failed!"
+        }
     }
 }

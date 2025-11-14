@@ -46,7 +46,6 @@ pipeline {
                 script {
                     def dockerImageTag = "${DOCKER_IMAGE_BASE}:${BUILD_NUMBER}"
                     dir('spring-boot-app') {
-                        sh 'apk add --no-cache docker-cli'
                         sh "docker build -t ${dockerImageTag} -f Dockerfile ."
                     }
                     def dockerImage = docker.image(dockerImageTag)

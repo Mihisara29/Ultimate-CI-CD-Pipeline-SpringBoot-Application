@@ -59,7 +59,8 @@ pipeline {
 
         stage('Update Deployment File') {
             steps {
-                dir('spring-boot-app-deplyment') {  // correct folder
+                dir('spring-boot-app-deplyment') {
+                    sh 'apk add --no-cache git'
                     withCredentials([string(credentialsId: 'github', variable: 'GITHUB_TOKEN')]) {
                         sh '''
                             git config user.email "${GIT_EMAIL}"
@@ -74,7 +75,7 @@ pipeline {
                 }
             }
         }
-    }
+
 
     post {
         always {

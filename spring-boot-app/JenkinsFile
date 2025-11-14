@@ -1,10 +1,5 @@
 pipeline {
-    agent {
-        docker {
-            image 'maven:3.9.4-eclipse-temurin-17-alpine'
-            args '--user root -v /var/run/docker.sock:/var/run/docker.sock'
-        }
-    }
+    agent any // Host agent
 
     environment {
         SONAR_URL = "http://3.83.239.186:9000"
@@ -23,6 +18,12 @@ pipeline {
         }
 
         stage('Build and Test') {
+            agent {
+                docker {
+                    image 'maven:3.9.4-eclipse-temurin-17-alpine'
+                    args '--user root -v /var/run/docker.sock:/var/run/docker.sock'
+                }
+            }
             steps {
                 dir('spring-boot-app') {
                     sh 'mvn clean package -B'
@@ -31,6 +32,12 @@ pipeline {
         }
 
         stage('Static Code Analysis') {
+            agent {
+                docker {
+                    image 'maven:3.9.4-eclipse-temurin-17-alpine'
+                    args '--user root'
+                }
+            }
             steps {
                 withCredentials([string(credentialsId: 'sonarqube', variable: 'SONAR_AUTH_TOKEN')]) {
                     dir('spring-boot-app') {
@@ -41,11 +48,16 @@ pipeline {
         }
 
         stage('Build and Push Docker Image') {
+            agent {
+                docker {
+                    image 'maven:3.9.4-eclipse-temurin-17-alpine'
+                    args '--user root -v /var/run/docker.sock:/var/run/docker.sock'
+                }
+            }
             steps {
                 script {
                     def dockerImageTag = "${DOCKER_IMAGE_BASE}:${BUILD_NUMBER}"
                     dir('spring-boot-app') {
-                        // Install Docker CLI inside container
                         sh 'apk add --no-cache docker-cli'
                         sh "docker build -t ${dockerImageTag} -f Dockerfile ."
                     }
@@ -58,10 +70,9 @@ pipeline {
             }
         }
 
-        // Run Git updates on the host, not inside Docker
         stage('Update Deployment File') {
-            agent any  // Use host Jenkins agent
             steps {
+                // Run on host agent
                 withCredentials([string(credentialsId: 'github', variable: 'GITHUB_TOKEN')]) {
                     sh '''
                         git config user.email "${GIT_EMAIL}"

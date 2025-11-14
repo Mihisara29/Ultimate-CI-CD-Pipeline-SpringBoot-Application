@@ -59,22 +59,23 @@ pipeline {
         }
 
         stage('Update Deployment File') {
-            agent { label 'your-host-node' } // Node with git installed
-            steps {
-                script {
-                    sh '''
-                        cd ${WORKSPACE}/spring-boot-app-deplyment
-                        git config user.email "induwaramihisara@gmail.com"
-                        git config user.name "Induwara Mihisara"
-                        sed -i "s/replaceImageTag/${BUILD_NUMBER}/g" deployment.yml
-                        git add deployment.yml
-                        git commit -m "Update deployment image to version ${BUILD_NUMBER}" || echo "No changes to commit"
-                        git push https://${GITHUB_TOKEN}@github.com/Mihisara29/Ultimate-CI-CD-Pipeline-SpringBoot-Application HEAD:main
-                    '''
-                }
+
+        steps {
+            withCredentials([string(credentialsId: 'github', variable: 'GITHUB_TOKEN')]) {
+                sh '''
+                    git config user.email "induwaramihisara@gmail.com"
+                    git config user.name "Mihisara29"
+                    BUILD_NUMBER=${BUILD_NUMBER}
+                    sed -i "s/replaceImageTag/${BUILD_NUMBER}/g" spring-boot-app-deployment/deployment.yml
+                    git add spring-boot-app-deployment/deployment.yml
+                    git commit -m "Update deployment image to version ${BUILD_NUMBER}"
+                    git push https://${GITHUB_TOKEN}@github.com/${GIT_USER_NAME}/${GIT_REPO_NAME} HEAD:main
+                '''
             }
         }
     }
+  }
+}
 
     post {
         always { echo "Pipeline finished." }

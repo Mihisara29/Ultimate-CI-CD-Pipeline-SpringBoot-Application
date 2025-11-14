@@ -16,6 +16,13 @@ pipeline {
 
     stages {
 
+                stage('Setup Tools') {
+                    steps {
+                        sh 'apk add --no-cache git bash docker-cli'
+                    }
+                }
+
+
         stage('Checkout') {
             steps {
                 echo 'Checking out the repository...'

@@ -1,38 +1,59 @@
 pipeline {
-    agent any
+    agent {
+        docker {
+            image 'maven:3.9.4-eclipse-temurin-17-alpine'
+            args '--user root -v /var/run/docker.sock:/var/run/docker.sock'
+        }
+    }
 
     environment {
-        DOCKER_HUB_CREDENTIALS = 'docker-hub-credentials-id' // Replace with your Docker Hub credentials ID
-        GITHUB_TOKEN = credentials('github') // Replace with your GitHub token credentials ID
-        IMAGE_NAME = 'im29/ultimate-cicd'
+        SONAR_URL = "http://3.83.239.186:9000"
+        GIT_REPO_NAME = "Ultimate-CI-CD-Pipeline-SpringBoot-Application"
+        GIT_USER_NAME = "Mihisara29"
+        GIT_EMAIL = "induwaramihisara@gmail.com"
+        DOCKER_IMAGE_BASE = "im29/ultimate-cicd"
     }
 
     stages {
-
-        stage('Build Docker Image') {
-            agent {
-                docker { image 'docker:24.0.5-cli' // docker CLI container
-                         args '-v /var/run/docker.sock:/var/run/docker.sock' }
-            }
+        stage('Checkout') {
             steps {
-                script {
-                    sh '''
-                        docker build -t ${IMAGE_NAME}:${BUILD_NUMBER} -f spring-boot-app/Dockerfile spring-boot-app
-                    '''
+                echo 'Checking out the repository...'
+                git branch: 'main', url: 'https://github.com/Mihisara29/Ultimate-CI-CD-Pipeline-SpringBoot-Application.git'
+            }
+        }
+
+        stage('Build and Test') {
+            steps {
+                dir('spring-boot-app') {
+                    sh 'mvn clean package -B'
                 }
             }
         }
 
-        stage('Push Docker Image') {
-            agent any
+        stage('Static Code Analysis') {
+            steps {
+                withCredentials([string(credentialsId: 'sonarqube', variable: 'SONAR_AUTH_TOKEN')]) {
+                    dir('spring-boot-app') {
+                        sh "mvn sonar:sonar -Dsonar.login=$SONAR_AUTH_TOKEN -Dsonar.host.url=${SONAR_URL}"
+                    }
+                }
+            }
+        }
+
+        stage('Build and Push Docker Image') {
             steps {
                 script {
-                    sh '''
-                        echo $DOCKER_HUB_CREDENTIALS | docker login -u im29 --password-stdin
-                        docker push ${IMAGE_NAME}:${BUILD_NUMBER}
-                        docker tag ${IMAGE_NAME}:${BUILD_NUMBER} ${IMAGE_NAME}:latest
-                        docker push ${IMAGE_NAME}:latest
-                    '''
+                    def dockerImageTag = "${DOCKER_IMAGE_BASE}:${BUILD_NUMBER}"
+                    dir('spring-boot-app') {
+                        // Install Docker CLI inside container
+                        sh 'apk add --no-cache docker-cli'
+                        sh "docker build -t ${dockerImageTag} -f Dockerfile ."
+                    }
+                    def dockerImage = docker.image(dockerImageTag)
+                    docker.withRegistry('https://index.docker.io/v1/', 'docker-cred') {
+                        dockerImage.push()
+                        dockerImage.push("latest")
+                    }
                 }
             }
         }
@@ -56,11 +77,8 @@ pipeline {
     }
 
     post {
-        success {
-            echo "Pipeline finished successfully!"
-        }
-        failure {
-            echo "Pipeline failed!"
-        }
+        always { echo "Pipeline finished." }
+        success { echo "Pipeline succeeded!" }
+        failure { echo "Pipeline failed!" }
     }
 }

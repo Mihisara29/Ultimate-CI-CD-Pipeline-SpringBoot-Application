@@ -15,6 +15,7 @@ pipeline {
     }
 
     stages {
+
         stage('Checkout') {
             steps {
                 echo 'Checking out the repository...'
@@ -45,7 +46,6 @@ pipeline {
                 script {
                     def dockerImageTag = "${DOCKER_IMAGE_BASE}:${BUILD_NUMBER}"
                     dir('spring-boot-app') {
-                        // Install Docker CLI inside container
                         sh 'apk add --no-cache docker-cli'
                         sh "docker build -t ${dockerImageTag} -f Dockerfile ."
                     }
@@ -59,27 +59,27 @@ pipeline {
         }
 
         stage('Update Deployment File') {
-
-        steps {
-            withCredentials([string(credentialsId: 'github', variable: 'GITHUB_TOKEN')]) {
-                sh '''
-                    git config user.email "induwaramihisara@gmail.com"
-                    git config user.name "Mihisara29"
-                    BUILD_NUMBER=${BUILD_NUMBER}
-                    sed -i "s/replaceImageTag/${BUILD_NUMBER}/g" spring-boot-app-deployment/deployment.yml
-                    git add spring-boot-app-deployment/deployment.yml
-                    git commit -m "Update deployment image to version ${BUILD_NUMBER}"
-                    git push https://${GITHUB_TOKEN}@github.com/${GIT_USER_NAME}/${GIT_REPO_NAME} HEAD:main
-                '''
+            steps {
+                withCredentials([string(credentialsId: 'github', variable: 'GITHUB_TOKEN')]) {
+                    sh '''
+                        git config user.email "induwaramihisara@gmail.com"
+                        git config user.name "Mihisara29"
+                        BUILD_NUMBER=${BUILD_NUMBER}
+                        sed -i "s/replaceImageTag/${BUILD_NUMBER}/g" spring-boot-app-deployment/deployment.yml
+                        git add spring-boot-app-deployment/deployment.yml
+                        git commit -m "Update deployment image to version ${BUILD_NUMBER}"
+                        git push https://${GITHUB_TOKEN}@github.com/${GIT_USER_NAME}/${GIT_REPO_NAME} HEAD:main
+                    '''
+                }
             }
         }
-    }
-  
 
+    } // <-- closes stages
 
     post {
         always { echo "Pipeline finished." }
         success { echo "Pipeline succeeded!" }
         failure { echo "Pipeline failed!" }
     }
-}
+
+} // <-- closes pipeline
